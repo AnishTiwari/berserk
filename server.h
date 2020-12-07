@@ -3,8 +3,7 @@
 
 
 void serve();
-
-void handle_client(int);
+void handle_client(int cfd);
 void accept_connection();
 
 

@@ -17,7 +17,6 @@
  *  2) set guid and uid to prevent root access
  *  3)return the socket file descriptor
  */
-
 void set_socket_non_blocking(int sfd){
 
   int flags;
@@ -38,7 +37,7 @@ void set_socket_non_blocking(int sfd){
 }
 
 /* step.1: returns the socket file descriptor */
-int create_socket_listener(void)
+int create_socket_listener(char* port)
 {
   struct addrinfo hints, *result, *r_ptr;
   int s, sfd ;
@@ -46,13 +45,13 @@ int create_socket_listener(void)
   hints.ai_family = AF_UNSPEC;
   hints.ai_socktype = SOCK_STREAM;
   hints.ai_protocol = 0;
+  hints.ai_flags = AI_PASSIVE;
+  
   /* https://man7.org/linux/man-pages/man3/getaddrinfo.3.html */
-
-  s = getaddrinfo(NULL, PORT, &hints, &result );
+  s = getaddrinfo(NULL, port, &hints, &result );
   if(s != 0){
     fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(s));
     exit(EXIT_FAILURE);
-
   }
 
   /* address structure linked list returned by getaddrinfo call */
@@ -85,23 +84,20 @@ int create_socket_listener(void)
     freeaddrinfo(result);
 
     exit(EXIT_FAILURE);
-
   }
 
   freeaddrinfo(result);
 
-  if(getuid() == 0){
+  if(getuid() == 0) {
 
-    if(setgid(100) != 0){
-
+    if(setgid(100) != 0) {
       fprintf(stderr, "Could not set group ID \n");
       exit(EXIT_FAILURE);
     }
+    
     if(setuid(1000) != 0){
       fprintf(stderr, "Could not set user ID \n");
       exit(EXIT_FAILURE);
-   
-      
     }
   }
 
@@ -112,7 +108,7 @@ int create_socket_listener(void)
 int main() {
 
   struct epoll_event event;
-  lfd = create_socket_listener();
+  lfd = create_socket_listener(PORT);
 
   /* make the socket non blocking */
   set_socket_non_blocking(lfd);
@@ -124,11 +120,16 @@ int main() {
     exit(EXIT_FAILURE);
   }
   
+  else{
+    printf("started to listen at PORT[%s] with sfd[%d]\n", PORT, lfd);   
+  }
+  
   /* create an epoll instance */
-  if( (efd = epoll_create1(0)) < 0){
+  if( (efd = epoll_create(MAX_EVENTS)) < 0){
     close(lfd);
     perror("epoll_create");
   }
+  
   event.data.fd = lfd;
   event.events = EPOLLIN | EPOLLET;
   
@@ -138,7 +139,6 @@ int main() {
     perror("epoll_ctl add");
     exit(EXIT_FAILURE);
   }
-
 
   for( ; ; ){
     serve();
